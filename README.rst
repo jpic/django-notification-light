@@ -25,7 +25,8 @@ UserNotification
     Has a User, a Notification, a Backend, and booleans "sent" and "read".
 
 UserSetting
-    Has a User, a Kind, a Backend, and a boolean "enabled".
+    Has a User, a Kind, a Backend, and a boolean "enabled". It may have a
+    Resource.
 
 Scenarios
 ---------
