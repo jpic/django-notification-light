@@ -61,37 +61,61 @@ class UserNotification(models.Model):
     user = models.ForeignKey('auth.User')
     notification = models.ForeignKey('Notification')
     backend = models.ForeignKey('Backend')
-    sent = models.BooleanField()
-    read = models.BooleanField()
+    status = models.CharField(max_length=24)
 
     def __unicode__(self):
-        return u'%s on %s for %s, sent: %s, read: %s' % (self.notification,
-            self.backend, self.user, self.sent, self.read)
+        return u'%s on %s for %s, status: %s' % (self.notification,
+            self.backend, self.user, self.status)
 
 
 def dispatch_notification(sender, instance, created, **kwargs):
-    enabled = UserSetting.objects.filter(kind=instance.kind, enabled=True)
-
-    subscriptions_to_kind = UserSetting.objects.filter(
-        kind=instance.kind, enabled=True, resource=None)
-
     if instance.resource:
-        subscriptions_to_resource_and_kind = UserSetting.objects.filter(
-            kind=instance.kind, resource=instance.resource, enabled=True)
-        subscriptions_to_resource = UserSetting.objects.filter(
-            resource=instance.resource, enabled=True)
+        # Don't cry: hopefully, all possible cases are tested ...
+        # But any help is appreciated.
 
-        q_kind = Q(pk__in=subscriptions_to_kind.values_list('pk'))
-        q_resource = Q(pk__in=subscriptions_to_resource.values_list('pk'))
-        q_kind_res = Q(pk__in=subscriptions_to_resource_and_kind.values_list(
-            'pk'))
-        subscriptions = UserSetting.objects.filter(
-            Q(q_kind) | Q(q_resource) | Q(q_kind_res))
+        resource_kind = UserSetting.objects.filter(kind=instance.kind,
+            resource=instance.resource)
+
+        resource_kind_include = resource_kind.filter(enabled=True
+            ).values_list('user__pk')
+        resource_kind_exclude = resource_kind.filter(enabled=False
+            ).values_list('user__pk')
+        include = Q(user__pk__in=resource_kind_include)
+        exclude = Q(user__pk__in=resource_kind_exclude)
+
+        resource = UserSetting.objects.filter(resource=instance.resource)
+        resource_include = resource.filter(enabled=True
+            ).values_list('user__pk')
+        resource_exclude = resource.filter(enabled=False
+            ).values_list('user__pk')
+        include |= (Q(user__pk__in=resource_include
+            ) & ~Q(user__pk__in=resource_kind_exclude))
+        exclude |= (Q(user__pk__in=resource_exclude
+            ) & ~Q(user__pk__in=resource_kind_include))
+
+        kind = UserSetting.objects.filter(kind=instance.kind)
+        include |= (
+            Q(user__pk__in=kind.filter(enabled=True).values_list('user__pk'))
+            & ~(Q(user__pk__in=resource_kind_exclude)
+                | Q(user__pk__in=resource_exclude)))
+        exclude |= (
+            Q(user__pk__in=kind.filter(enabled=False).values_list('user__pk'))
+            & ~(Q(user__pk__in=resource_kind_include)
+                | Q(user__pk__in=resource_include)))
+
+        subscriptions = UserSetting.objects.filter(include).exclude(exclude)
     else:
-        subscriptions = subscriptions_to_kind
+        subscriptions = UserSetting.objects.filter(kind=instance.kind,
+                                                   enabled=True)
 
-    for subscription in subscriptions:
+    seen = []
+    for subscription in subscriptions.distinct():
+        if subscription.user_id in seen:
+            continue
+
         UserNotification.objects.create(user=subscription.user,
             backend=subscription.backend, notification=instance)
+
+        seen.append(subscription.user_id)
 
 signals.post_save.connect(dispatch_notification, sender=Notification)
