@@ -21,7 +21,7 @@ Resource
     relations and fields that you want.
 
 Notification
-    Has a Kind, a Resource and an (automatic) creating date.
+    Has a Kind, an (automatic) creating date, may have a Resource.
 
 UserNotification
     Has a User, a Notification, a Backend, and booleans "sent" and "read".
@@ -30,32 +30,25 @@ UserSetting
     Has a User, a Kind, a Backend, and a boolean "enabled". It may have a
     Resource.
 
-Scenarios
----------
+A subscription could be represented by a UserSetting with enabled=True. A
+user can thus subscribe to:
 
-Consider a simple "Announce" model in an external app "announces", which
-decided to use URLResource.
+- a particular notification kind on a particular resource, has priority
+- a particular resource, has less priority
+- a particular kind, used if no more precise UserSetting exist.
 
-- User enables "Email backend" on "New announce" notification Kind.
-- User enables "Widget backend" on "New announce" notification Kind.
-- On Announce save, the announces app has a post_save receiver for when created=True:
-  - URLResource is created with name=Announce.__unicode__() and
-      url=Announce.get_absolute_url,
-  - Notification is created with kind="New announce" and resource=<resource
-      created above>
-  - notification_light receives post_save for Notification if created=True:
-    - Using defined UserSetting, it creates the right UserNotification instances
-      with sent=False and read=False,
-    - The "Email backend" has a pre_save receiver for UserNotification, if the
-      backend name is "notification_light.contrib.email_backend" and sent=False
-      then it will send the email and set sent=True. This backend does not care
-      about the "read" attribute of the UserNotification.
-    - The widget backend shows all UserNotification, when the user clicks on a
-      notification it will set read=True and redirect the user. This backend does
-      not care about the "sent" attribute of the UserNotification
+Workflow
+--------
 
-Because UserSetting has an optionnal FK to Resource, a user may enable or
-disable a notification type for a backend on a specific resource.
+`notification_light.contrib.user_notification` demonstrates how CRUD
+notifications would work for the User model. It works as such:
+
+- on User.post_save, create the Notification on the right Kind using
+  user.userresource,
+- Notification.post_save is recieved by notification_light's dispatcher, and
+  creates the appropriate UserNotification objects,
+- UserNotification.post_save is recieved by each backend, which may set
+  UserNotification.status to whatever value it wants.
 
 Install
 -------
