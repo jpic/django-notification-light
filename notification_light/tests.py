@@ -11,10 +11,8 @@ class NotificationTestCase(unittest.TestCase):
         User.objects.all().delete()
 
     def setUp(self):
-        self.create, c = Kind.objects.get_or_create(
-                name='auth.user.create')
-        self.update, c = Kind.objects.get_or_create(
-                name='auth.user.update')
+        self.create, c = Kind.objects.get_or_create(name='auth.user.create')
+        self.update, c = Kind.objects.get_or_create(name='auth.user.update')
         self.backend, c = Backend.objects.get_or_create(name='dummy')
 
         self.watch_all = User.objects.create(username='watch_all')

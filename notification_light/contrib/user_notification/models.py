@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 
 from annoying.fields import AutoOneToOneField
 
-from notification_light.models import Kind, UserNotification, Resource, Notification
+from notification_light.models import (Kind, UserNotification, Resource,
+                                       Notification)
 
 
 class UserResource(Resource):

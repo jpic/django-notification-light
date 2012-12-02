@@ -73,23 +73,25 @@ def dispatch_notification(sender, instance, created, **kwargs):
     enabled = UserSetting.objects.filter(kind=instance.kind, enabled=True)
 
     subscriptions_to_kind = UserSetting.objects.filter(
-            kind=instance.kind, enabled=True, resource=None)
+        kind=instance.kind, enabled=True, resource=None)
 
     if instance.resource:
         subscriptions_to_resource_and_kind = UserSetting.objects.filter(
-                kind=instance.kind, resource=instance.resource, enabled=True)
+            kind=instance.kind, resource=instance.resource, enabled=True)
         subscriptions_to_resource = UserSetting.objects.filter(
-                resource=instance.resource, enabled=True)
+            resource=instance.resource, enabled=True)
 
-        subscriptions = UserSetting.objects.filter(Q(
-            pk__in=subscriptions_to_kind.values_list('pk'))|Q(
-            pk__in=subscriptions_to_resource.values_list('pk'))|Q(
-            pk__in=subscriptions_to_resource_and_kind.values_list('pk')))
+        q_kind = Q(pk__in=subscriptions_to_kind.values_list('pk'))
+        q_resource = Q(pk__in=subscriptions_to_resource.values_list('pk'))
+        q_kind_res = Q(pk__in=subscriptions_to_resource_and_kind.values_list(
+            'pk'))
+        subscriptions = UserSetting.objects.filter(
+            Q(q_kind) | Q(q_resource) | Q(q_kind_res))
     else:
         subscriptions = subscriptions_to_kind
 
     for subscription in subscriptions:
         UserNotification.objects.create(user=subscription.user,
-                backend=subscription.backend, notification=instance)
+            backend=subscription.backend, notification=instance)
 
 signals.post_save.connect(dispatch_notification, sender=Notification)
