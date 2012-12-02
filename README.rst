@@ -1,3 +1,5 @@
+.. image:: https://secure.travis-ci.org/yourlabs/django-notification-light.png?branch=master
+
 django-notification-light attemps to provide a fresh approach on the
 notification problem. Although composed of several simple models and relies on
 signals, it manages to solves most problems with full flexibility, using model
