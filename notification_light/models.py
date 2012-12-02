@@ -73,32 +73,27 @@ def dispatch_notification(sender, instance, created, **kwargs):
         # Don't cry: hopefully, all possible cases are tested ...
         # But any help is appreciated.
         upk = lambda q: q.values_list('user__pk')
+        upk_in = lambda q: Q(user__pk__in=upk(q))
 
         resource_kind = UserSetting.objects.filter(kind=instance.kind,
             resource=instance.resource)
 
         resource_kind_include = upk(resource_kind.filter(enabled=True))
         resource_kind_exclude = upk(resource_kind.filter(enabled=False))
-        include = Q(user__pk__in=resource_kind_include)
-        exclude = Q(user__pk__in=resource_kind_exclude)
+        include = upk_in(resource_kind_include)
+        exclude = upk_in(resource_kind_exclude)
 
         resource = UserSetting.objects.filter(resource=instance.resource)
         resource_include = upk(resource.filter(enabled=True))
         resource_exclude = upk(resource.filter(enabled=False))
-        include |= (Q(user__pk__in=resource_include
-            ) & ~Q(user__pk__in=resource_kind_exclude))
-        exclude |= (Q(user__pk__in=resource_exclude
-            ) & ~Q(user__pk__in=resource_kind_include))
+        include |= (upk_in(resource_include) & ~upk_in(resource_kind_exclude))
+        exclude |= (upk_in(resource_exclude) & ~upk_in(resource_kind_include))
 
         kind = UserSetting.objects.filter(kind=instance.kind)
-        include |= (
-            Q(user__pk__in=upk(kind.filter(enabled=True)))
-            & ~(Q(user__pk__in=resource_kind_exclude)
-                | Q(user__pk__in=resource_exclude)))
-        exclude |= (
-            Q(user__pk__in=upk(kind.filter(enabled=False)))
-            & ~(Q(user__pk__in=resource_kind_include)
-                | Q(user__pk__in=resource_include)))
+        include |= (upk_in(kind.filter(enabled=True))
+            & ~(upk_in(resource_kind_exclude) | upk_in(resource_exclude)))
+        exclude |= (upk_in(kind.filter(enabled=False))
+            & ~(upk_in(resource_kind_include) | upk_in(resource_include)))
 
         subscriptions = UserSetting.objects.filter(include).exclude(exclude)
     else:
