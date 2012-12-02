@@ -72,22 +72,19 @@ def dispatch_notification(sender, instance, created, **kwargs):
     if instance.resource:
         # Don't cry: hopefully, all possible cases are tested ...
         # But any help is appreciated.
+        upk = lambda q: q.values_list('user__pk')
 
         resource_kind = UserSetting.objects.filter(kind=instance.kind,
             resource=instance.resource)
 
-        resource_kind_include = resource_kind.filter(enabled=True
-            ).values_list('user__pk')
-        resource_kind_exclude = resource_kind.filter(enabled=False
-            ).values_list('user__pk')
+        resource_kind_include = upk(resource_kind.filter(enabled=True))
+        resource_kind_exclude = upk(resource_kind.filter(enabled=False))
         include = Q(user__pk__in=resource_kind_include)
         exclude = Q(user__pk__in=resource_kind_exclude)
 
         resource = UserSetting.objects.filter(resource=instance.resource)
-        resource_include = resource.filter(enabled=True
-            ).values_list('user__pk')
-        resource_exclude = resource.filter(enabled=False
-            ).values_list('user__pk')
+        resource_include = upk(resource.filter(enabled=True))
+        resource_exclude = upk(resource.filter(enabled=False))
         include |= (Q(user__pk__in=resource_include
             ) & ~Q(user__pk__in=resource_kind_exclude))
         exclude |= (Q(user__pk__in=resource_exclude
@@ -95,11 +92,11 @@ def dispatch_notification(sender, instance, created, **kwargs):
 
         kind = UserSetting.objects.filter(kind=instance.kind)
         include |= (
-            Q(user__pk__in=kind.filter(enabled=True).values_list('user__pk'))
+            Q(user__pk__in=upk(kind.filter(enabled=True)))
             & ~(Q(user__pk__in=resource_kind_exclude)
                 | Q(user__pk__in=resource_exclude)))
         exclude |= (
-            Q(user__pk__in=kind.filter(enabled=False).values_list('user__pk'))
+            Q(user__pk__in=upk(kind.filter(enabled=False)))
             & ~(Q(user__pk__in=resource_kind_include)
                 | Q(user__pk__in=resource_include)))
 
